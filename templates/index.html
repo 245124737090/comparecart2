@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>CompareCart – Price Comparison</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      background:#f3f4ff;
+      color:#0f172a;
+    }
+    a{text-decoration:none;color:inherit}
+    .page{min-height:100vh;background:#f3f4ff;}
+    .shell{max-width:1120px;margin:0 auto;padding:18px 16px 40px;}
+
+    .nav{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:10px 18px;border-radius:999px;
+      background:#ffffff;
+      box-shadow:0 10px 30px rgba(15,23,42,.08);
+      margin-bottom:24px;
+    }
+    .nav-left{display:flex;align-items:center;gap:10px}
+    .nav-logo{
+      width:34px;height:34px;border-radius:12px;
+      background:#8b5cf6;display:flex;align-items:center;justify-content:center;
+      color:#fff;font-weight:800;font-size:18px;
+    }
+    .nav-title{font-weight:800;font-size:18px;color:#5b21b6}
+    .nav-center{display:flex;gap:16px;font-size:14px}
+    .nav-link{
+      padding:6px 12px;border-radius:999px;cursor:pointer;
+      color:#6b7280;
+    }
+    .nav-link.active{
+      background:#ede9fe;color:#5b21b6;font-weight:600;
+    }
+    .nav-right{display:flex;gap:8px;align-items:center}
+    .btn-ghost,.btn-solid{
+      padding:6px 14px;border-radius:999px;font-size:13px;cursor:pointer;
+    }
+    .btn-ghost{
+      background:transparent;border:1px solid #d4d4d8;color:#4b5563;
+    }
+    .btn-solid{
+      border:none;background:#8b5cf6;color:#fff;font-weight:600;
+    }
+
+    .panels{margin-top:18px}
+    .panel{display:none}
+    .panel.active{display:block}
+
+    .hero-card{
+      background:#f9fafb;border-radius:26px;padding:26px 30px 22px;
+      box-shadow:0 26px 60px rgba(148,163,184,.3);
+    }
+    .hero-title{
+      text-align:center;font-size:40px;font-weight:900;letter-spacing:-.05em;
+      color:#7c3aed;margin-bottom:4px;
+    }
+    .hero-sub{text-align:center;font-size:14px;color:#4b5563;margin-bottom:18px;}
+    .search-wrap{
+      max-width:520px;margin:0 auto;background:#eef2ff;border-radius:999px;
+      padding:5px;display:flex;gap:6px;align-items:center;
+      box-shadow:0 12px 30px rgba(148,163,184,.4);
+    }
+    .search-input{
+      flex:1;border:none;outline:none;background:transparent;
+      padding:8px 10px 8px 14px;font-size:14px;color:#111827;
+    }
+    .search-input::placeholder{color:#9ca3af}
+    .search-btn{
+      border:none;border-radius:999px;background:#8b5cf6;
+      color:#fff;font-size:14px;padding:8px 18px;font-weight:600;cursor:pointer;
+    }
+    .category-row{
+      margin-top:18px;display:flex;justify-content:center;gap:12px;flex-wrap:wrap;
+    }
+    .cat-pill{
+      display:inline-flex;align-items:center;gap:6px;
+      padding:8px 14px;border-radius:999px;font-size:13px;
+      cursor:pointer;border:none;font-weight:500;
+    }
+    .cat-pill.elec{background:#e0f2fe;color:#0369a1}
+    .cat-pill.home{background:#dcfce7;color:#15803d}
+    .cat-pill.sports{background:#ffedd5;color:#c2410c}
+
+    .section-head{
+      margin-top:26px;display:flex;justify-content:space-between;align-items:baseline;
+    }
+    .section-title{font-size:18px;font-weight:700;color:#111827}
+    .section-sub{font-size:12px;color:#6b7280}
+
+    .card-grid{
+      margin-top:16px;
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+      gap:18px;
+    }
+    .p-card{
+      background:#ffffff;border-radius:20px;padding:12px 12px 14px;
+      box-shadow:0 16px 36px rgba(148,163,184,.45);
+      border:1px solid #e5e7eb;cursor:pointer;
+      transition:transform .12s,box-shadow .12s,border-color .12s;
+    }
+    .p-card:hover{
+      transform:translateY(-4px);
+      box-shadow:0 24px 50px rgba(148,163,184,.7);
+      border-color:#8b5cf6;
+    }
+    .p-image{
+      width:100%;height:150px;border-radius:14px;
+      background:#e5e7eb;display:flex;align-items:center;justify-content:center;
+      margin-bottom:8px;overflow:hidden;
+    }
+    .p-image img{
+      width:100%;height:100%;object-fit:cover;border-radius:12px;
+    }
+    .p-meta-top{
+      display:flex;justify-content:space-between;align-items:center;
+      margin-bottom:6px;font-size:11px;
+    }
+    .badge-cat{
+      padding:2px 8px;border-radius:999px;background:#eff6ff;
+      color:#1d4ed8;font-weight:500;
+    }
+    .rating{display:inline-flex;align-items:center;gap:3px;color:#f59e0b}
+    .p-name{font-size:13px;font-weight:600;margin-bottom:4px;min-height:32px;color:#111827}
+    .p-desc{font-size:11px;color:#6b7280;min-height:30px;margin-bottom:8px}
+    .p-footer{display:flex;justify-content:space-between;align-items:flex-end;font-size:12px}
+    .price-main{font-size:15px;font-weight:700;color:#7c3aed}
+    .price-label{font-size:11px;color:#9ca3af}
+
+    .detail-layout{
+      margin-top:20px;
+      display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1.3fr);gap:20px;
+    }
+    .detail-card,.table-card{
+      background:#ffffff;border-radius:22px;
+      padding:18px 20px 16px;box-shadow:0 18px 40px rgba(148,163,184,.45);
+      border:1px solid #e5e7eb;
+    }
+    .detail-header{
+      font-size:11px;text-transform:uppercase;letter-spacing:.16em;
+      color:#9ca3af;margin-bottom:4px;
+    }
+    .detail-name{
+      font-size:24px;
+      font-weight:800;
+      margin-bottom:6px;
+      color:#111827;
+    }
+    .detail-price{
+      font-size:28px;
+      font-weight:900;
+      color:#7c3aed;
+    }
+    .detail-best{
+      font-size:12px;
+      font-weight:600;
+      color:#16a34a;
+      margin-bottom:10px;
+    }
+    .detail-meta{
+      display:flex;flex-wrap:wrap;gap:10px 16px;
+      font-size:11px;color:#4b5563;margin:10px 0 14px;
+    }
+    .detail-meta span strong{
+      display:block;
+      font-size:12px;
+      font-weight:600;
+      color:#9ca3af;
+      text-transform:uppercase;
+      letter-spacing:.06em;
+    }
+    .detail-actions{display:flex;gap:10px;margin-top:4px;}
+    .btn-primary{
+      flex:1;padding:9px 12px;border-radius:999px;border:none;
+      background:#8b5cf6;color:#fff;font-size:13px;font-weight:600;cursor:pointer;
+    }
+    .btn-secondary{
+      flex:1;padding:9px 12px;border-radius:999px;border:1px dashed #d4d4d8;
+      background:#f3f4ff;font-size:12px;color:#4b5563;cursor:pointer;
+    }
+    .detail-updated{margin-top:8px;font-size:11px;color:#9ca3af;text-align:right;}
+
+    table{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px;}
+    th,td{padding:8px 8px;text-align:left;font-size:13px;}
+    thead tr{
+      background:#e5e7eb;
+      color:#374151;
+      font-size:13px;
+      font-weight:600;
+    }
+    tbody tr:nth-child(even){background:#f9fafb;}
+    tbody tr:nth-child(odd){background:#fefefe;}
+    tbody tr.best-row{background:rgba(16,185,129,.12);}
+    .badge-best{display:inline-block;margin-left:6px;padding:3px 7px;border-radius:999px;font-size:10px;background:#10b981;color:#ecfdf5;text-transform:uppercase;letter-spacing:.08em;}
+    .status-ok{color:#16a34a;font-weight:600;}
+    .btn-view{padding:5px 10px;border-radius:999px;border:none;font-size:11px;font-weight:600;cursor:pointer;color:#ffffff;background:#8b5cf6;}
+    .muted{font-size:11px;color:#9ca3af;margin-top:8px;}
+
+    .cat-page-card{
+      background:#ffffff;border-radius:26px;padding:20px 22px 18px;
+      box-shadow:0 22px 50px rgba(148,163,184,.45);border:1px solid #e5e7eb;
+    }
+    .cat-page-title{font-size:22px;font-weight:800;margin-bottom:4px;color:#111827;}
+    .cat-page-sub{font-size:13px;color:#6b7280;margin-bottom:14px;}
+    .subtabs{display:flex;gap:8px;margin-bottom:14px;}
+    .subtab{
+      padding:7px 14px;border-radius:999px;border:1px solid #e5e7eb;
+      background:#f9fafb;cursor:pointer;font-size:13px;color:#6b7280;
+    }
+    .subtab.active{
+      background:#8b5cf6;border-color:#8b5cf6;color:#ffffff;font-weight:600;
+    }
+
+    .auth-card{
+      background:#ffffff;border-radius:26px;padding:24px 26px 22px;
+      box-shadow:0 22px 50px rgba(148,163,184,.45);border:1px solid #e5e7eb;
+      max-width:420px;margin:0 auto;
+    }
+    .auth-card h2{font-size:22px;font-weight:700;margin-bottom:4px;color:#111827;}
+    .auth-card p{font-size:13px;color:#6b7280;margin-bottom:16px;}
+    .auth-row{display:flex;flex-direction:column;gap:10px;}
+    .auth-input{
+      width:100%;padding:9px 11px;border-radius:10px;
+      border:1px solid #d4d4d8;background:#f9fafb;color:#111827;font-size:13px;
+    }
+    .auth-input:focus{outline:none;border-color:#8b5cf6;background:#eef2ff;}
+
+    @media(max-width:880px){
+      .detail-layout{grid-template-columns:1fr;}
+      .nav{flex-wrap:wrap;row-gap:10px;}
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+  <div class="shell">
+
+    <nav class="nav">
+      <div class="nav-left">
+        <div class="nav-logo">C</div>
+        <div>
+          <div class="nav-title">CompareCart</div>
+          <div style="font-size:11px;color:#9ca3af;">Choose the best price in one click</div>
+        </div>
+      </div>
+      <div class="nav-center">
+        <span class="nav-link active" data-view="home">Home</span>
+        <span class="nav-link" data-view="categories">Categories</span>
+        <span class="nav-link" data-view="compare">Compare</span>
+      </div>
+      <div class="nav-right">
+        {% if user_email %}
+          <span style="font-size:13px;color:#6b7280;">{{ user_email }}</span>
+          <button class="btn-ghost" type="button" id="wishlistBtn">Wishlist (0)</button>
+          <a href="/logout"><button class="btn-solid" type="button">Log out</button></a>
+        {% else %}
+          <button class="btn-ghost" type="button" id="wishlistBtn">Wishlist (0)</button>
+          <button class="btn-ghost" type="button" data-view="login">Log in</button>
+          <button class="btn-solid" type="button" data-view="signup">Sign up</button>
+        {% endif %}
+      </div>
+    </nav>
+
+    <div class="panels">
+      <!-- HOME -->
+      <section id="panel-home" class="panel active">
+        <section class="hero-card">
+          <div class="hero-title">CompareCart</div>
+          <p class="hero-sub">
+            Compare prices across Amazon and Flipkart in one place and pick the best deal instantly.
+          </p>
+          <div class="search-wrap">
+            <input id="searchBox" class="search-input" placeholder="Search products…" />
+            <button id="searchBtn" class="search-btn" type="button">Search</button>
+          </div>
+          <div class="category-row">
+            <button class="cat-pill elec" type="button" data-cat="Electronics">📱 Electronics</button>
+            <button class="cat-pill home" type="button" data-cat="Home Appliances">🏠 Home Appliances</button>
+            <button class="cat-pill sports" type="button" data-cat="Sports">🏏 Sports</button>
+          </div>
+        </section>
+
+        <section>
+          <div class="section-head">
+            <div>
+              <div class="section-title">Trending Products</div>
+              <div class="section-sub">Best deals from top retailers (demo)</div>
+            </div>
+          </div>
+          <div class="card-grid" id="productGrid"></div>
+        </section>
+      </section>
+
+      <!-- COMPARE -->
+      <section id="panel-compare" class="panel">
+        <div class="section-head">
+          <div>
+            <div class="section-title">Product comparison</div>
+            <div class="section-sub">Select a product from Home or Categories</div>
+          </div>
+        </div>
+
+        <div class="detail-layout">
+          <div class="detail-card">
+            <div class="detail-header">Product</div>
+            <div id="detailName" class="detail-name">No product selected</div>
+            <div id="detailPrice" class="detail-price"></div>
+            <div id="detailBestText" class="detail-best" style="display:none;">Best price available</div>
+            <div id="detailSpecs" class="detail-meta"></div>
+            <div class="detail-actions">
+              <button id="buyNowBtn" class="btn-primary" type="button">Buy now</button>
+              <button class="btn-secondary" type="button">Track price</button>
+            </div>
+            <div id="detailUpdated" class="detail-updated"></div>
+          </div>
+
+          <div class="table-card">
+            <div class="detail-header">Price comparison</div>
+            <div id="tableWrap" style="font-size:13px;color:#6b7280;">
+              Choose a product to load prices from Amazon and Flipkart.
+            </div>
+            <p class="muted">
+              Demo only – real prices should be fetched via your backend from APIs / scrapers.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- CATEGORIES -->
+      <section id="panel-categories" class="panel">
+        <div class="cat-page-card">
+          <div class="detail-header">Categories</div>
+          <div class="cat-page-title">Browse by category</div>
+          <p class="cat-page-sub">
+            Electronics, Home Appliances and Sports (Cricket). Click a tab to see products, then click a card to compare.
+          </p>
+
+          <div class="subtabs">
+            <button class="subtab active" data-subcat="Electronics" type="button">Electronics</button>
+            <button class="subtab" data-subcat="Home Appliances" type="button">Home Appliances</button>
+            <button class="subtab" data-subcat="Sports" type="button">Sports (Cricket)</button>
+          </div>
+
+          <div class="card-grid" id="categoryGrid"></div>
+        </div>
+      </section>
+
+      <!-- WISHLIST -->
+      <section id="panel-wishlist" class="panel">
+        <div class="cat-page-card">
+          <div class="detail-header">Saved items</div>
+          <div class="cat-page-title">Your wishlist</div>
+          <p class="cat-page-sub">
+            Products you have added to your wishlist. Click any card to open price comparison.
+          </p>
+          <div class="card-grid" id="wishlistGrid"></div>
+        </div>
+      </section>
+
+      <!-- LOGIN -->
+      <section id="panel-login" class="panel">
+        <div class="auth-card">
+          <div class="detail-header">Welcome back</div>
+          <h2>Log in to CompareCart</h2>
+          <p>Save favourites and price alerts across your devices.</p>
+          <form class="auth-row" method="post" action="/login">
+            <input class="auth-input" name="email" placeholder="Email address" />
+            <input class="auth-input" name="password" type="password" placeholder="Password" />
+            <button class="btn-solid" type="submit">Log in</button>
+          </form>
+          <p class="muted" style="margin-top:12px;">Demo auth – stored only in memory while server runs.</p>
+        </div>
+      </section>
+
+      <!-- SIGNUP -->
+      <section id="panel-signup" class="panel">
+        <div class="auth-card">
+          <div class="detail-header">Create account</div>
+          <h2>Join CompareCart</h2>
+          <p>Get notified when prices drop below your target on Amazon or Flipkart.</p>
+          <form class="auth-row" method="post" action="/signup">
+            <input class="auth-input" name="full_name" placeholder="Full name (optional)" />
+            <input class="auth-input" name="email" placeholder="Email address" />
+            <input class="auth-input" name="password" type="password" placeholder="Password" />
+            <button class="btn-solid" type="submit">Sign up</button>
+          </form>
+          <p class="muted" style="margin-top:12px;">Passwords are hashed but users are not persisted to a real DB yet.</p>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* ---------- PRODUCT DATA (same as before) ---------- */
+  const ELECTRONICS_PRODUCTS = [
+    {id:1,category:"Electronics",name:"Apple iPhone 15 Pro Max",rating:4.8,reviews:5230,basePrice:157499,image:"https://your-cdn.com/electronics/iphone15promax.jpg",desc:"Flagship Apple phone with A17 Pro chip and 48MP camera.",specs:{Screen:'6.7\" Super Retina XDR',Storage:"256GB / 512GB / 1TB",Camera:"48MP main camera",Battery:"3,349 mAh"}},
+    {id:2,category:"Electronics",name:"Samsung Galaxy S24 Ultra",rating:4.7,reviews:3890,basePrice:98687,image:"https://your-cdn.com/electronics/galaxy-s24-ultra.jpg",desc:"Premium Android phone with 200MP camera and S Pen.",specs:{Screen:'6.8\" Dynamic AMOLED',Storage:"256GB / 512GB",Camera:"200MP main camera",Battery:"5,000 mAh"}},
+    {id:3,category:"Electronics",name:"Google Pixel 9 Pro",rating:4.6,reviews:2100,basePrice:89999,image:"https://your-cdn.com/electronics/pixel9pro.jpg",desc:"Clean Android with advanced AI camera features.",specs:{Screen:'6.7\" OLED',Storage:"256GB",Camera:"50MP main + ultra‑wide",Battery:"5,000 mAh"}},
+    {id:4,category:"Electronics",name:"OnePlus 12R",rating:4.5,reviews:3100,basePrice:42999,image:"https://your-cdn.com/electronics/oneplus12r.jpg",desc:"Flagship‑killer phone with Snapdragon processor.",specs:{Screen:'6.78\" AMOLED 120Hz',Storage:"128GB / 256GB",Camera:"50MP main",Battery:"5,500 mAh"}},
+    {id:5,category:"Electronics",name:"MacBook Air 15\" M3",rating:4.9,reviews:1200,basePrice:134900,image:"https://your-cdn.com/electronics/macbook-air-15-m3.jpg",desc:"Lightweight 15‑inch laptop with Apple M3 chip.",specs:{Screen:'15.3\" Liquid Retina',Storage:"256GB / 512GB SSD",CPU:"Apple M3",Battery:"18‑hour battery life"}},
+    {id:6,category:"Electronics",name:"Dell XPS 13 Plus",rating:4.7,reviews:870,basePrice:142990,image:"https://your-cdn.com/electronics/dell-xps-13-plus.jpg",desc:"Premium ultrabook with borderless display.",specs:{Screen:'13.4\" OLED',Storage:"512GB SSD",CPU:"Intel Core i7",RAM:"16GB"}},
+    {id:7,category:"Electronics",name:"Sony WH‑1000XM5 Headphones",rating:4.8,reviews:6500,basePrice:29990,image:"https://your-cdn.com/electronics/sony-xm5.jpg",desc:"Industry‑leading noise cancelling wireless headphones.",specs:{Type:"Over‑ear",Battery:"30 hours",Features:"ANC, multipoint, fast charge"}},
+    {id:8,category:"Electronics",name:"Apple AirPods Pro (2nd Gen)",rating:4.7,reviews:9200,basePrice:24990,image:"https://your-cdn.com/electronics/airpods-pro-2.jpg",desc:"In‑ear earbuds with Adaptive Transparency and ANC.",specs:{Type:"In‑ear",Battery:"Up to 6 hours",Features:"ANC, MagSafe case"}},
+    {id:9,category:"Electronics",name:"Samsung Galaxy Watch7",rating:4.4,reviews:2100,basePrice:32999,image:"https://your-cdn.com/electronics/galaxy-watch7.jpg",desc:"Smartwatch with health tracking and LTE option.",specs:{Size:"44mm",Features:"ECG, SpO2, GPS",OS:"Wear OS"}},
+    {id:10,category:"Electronics",name:"Amazon Fire TV Stick 4K",rating:4.5,reviews:15000,basePrice:4999,image:"https://your-cdn.com/electronics/fire-tv-stick-4k.jpg",desc:"4K streaming stick with Alexa voice remote.",specs:{Resolution:"4K HDR",Apps:"Prime, Netflix, Hotstar",Voice:"Alexa voice remote"}}
+  ];
+
+  const HOME_APPLIANCES_PRODUCTS = [
+    {id:11,category:"Home Appliances",name:"LG 55\" OLED 4K Smart TV",rating:4.9,reviews:2100,basePrice:103617,image:"https://your-cdn.com/home/lg-oled-55.jpg",desc:"Stunning OLED TV with Dolby Vision IQ.",specs:{Screen:'55\" 4K OLED',HDR:"Dolby Vision IQ",Audio:"Dolby Atmos"}},
+    {id:12,category:"Home Appliances",name:"Samsung 700L Side‑by‑Side Refrigerator",rating:4.5,reviews:850,basePrice:89999,image:"https://your-cdn.com/home/samsung-700l-fridge.jpg",desc:"700L inverter refrigerator with 5★ energy rating.",specs:{Capacity:"700 L",Type:"Side‑by‑side",Energy:"5★",Warranty:"10 years compressor"}},
+    {id:13,category:"Home Appliances",name:"Whirlpool 7kg Front‑Load Washing Machine",rating:4.4,reviews:1900,basePrice:32999,image:"https://your-cdn.com/home/whirlpool-7kg-wm.jpg",desc:"Front‑load washer with 1200 RPM and heater.",specs:{Capacity:"7 kg",Type:"Front load",RPM:"1200",Features:"In‑built heater"}},
+    {id:14,category:"Home Appliances",name:"Bosch 13 Place Dishwasher",rating:4.6,reviews:740,basePrice:42999,image:"https://your-cdn.com/home/bosch-dishwasher.jpg",desc:"Energy‑efficient dishwasher with multiple wash programs.",specs:{Capacity:"13 place",Noise:"52 dB",Energy:"A++"}},
+    {id:15,category:"Home Appliances",name:"Dyson V12 Cordless Vacuum Cleaner",rating:4.7,reviews:1600,basePrice:55990,image:"https://your-cdn.com/home/dyson-v12.jpg",desc:"Lightweight cordless vacuum with LCD screen.",specs:{Type:"Cordless stick",Battery:"60 min",Features:"Laser Slim Fluffy head"}},
+    {id:16,category:"Home Appliances",name:"Philips Air Fryer XL",rating:4.5,reviews:2600,basePrice:12999,image:"https://your-cdn.com/home/philips-airfryer-xl.jpg",desc:"Healthy frying with little or no oil.",specs:{Capacity:"6.2 L",Power:"2000 W",Features:"Rapid Air technology"}},
+    {id:17,category:"Home Appliances",name:"Bajaj 20L Solo Microwave Oven",rating:4.3,reviews:3100,basePrice:7499,image:"https://your-cdn.com/home/bajaj-microwave-20l.jpg",desc:"Compact microwave for everyday heating and cooking.",specs:{Capacity:"20 L",Type:"Solo",PowerLevels:"5"}},
+    {id:18,category:"Home Appliances",name:"Havells 1200mm Ceiling Fan",rating:4.2,reviews:4400,basePrice:2499,image:"https://your-cdn.com/home/havells-fan.jpg",desc:"Energy efficient ceiling fan with high air delivery.",specs:{Sweep:"1200 mm",Speed:"390 RPM",Power:"75 W"}},
+    {id:19,category:"Home Appliances",name:"Kent Grand RO Water Purifier",rating:4.3,reviews:2800,basePrice:16999,image:"https://your-cdn.com/home/kent-grand-ro.jpg",desc:"RO+UF+UV water purifier with 8L storage tank.",specs:{Technology:"RO+UF+UV",Storage:"8 L",TDS:"Up to 1500 ppm"}},
+    {id:20,category:"Home Appliances",name:"Usha Honeywell Air Cooler",rating:4.1,reviews:1500,basePrice:9990,image:"https://your-cdn.com/home/usha-air-cooler.jpg",desc:"Portable air cooler suitable for medium rooms.",specs:{Capacity:"40 L",Coverage:"Up to 150 sq ft",Type:"Desert cooler"}}
+  ];
+
+  const SPORTS_PRODUCTS = [
+    {id:21,category:"Sports",sport:"Cricket",name:"SS Ton English Willow Bat",rating:4.7,reviews:620,basePrice:8499,image:"https://your-cdn.com/sports/ss-ton-bat.jpg",desc:"Grade 2 English willow bat for powerful stroke play.",specs:{Grade:"Grade 2",Weight:"1.2–1.3 kg",Handle:"Short handle"}},
+    {id:22,category:"Sports",sport:"Cricket",name:"SG League Cricket Ball (Pack of 6)",rating:4.4,reviews:540,basePrice:2999,image:"https://your-cdn.com/sports/sg-league-balls.jpg",desc:"Leather cricket balls for league and club matches.",specs:{Type:"Leather",Pack:"6 balls",Use:"Turf pitches"}},
+    {id:23,category:"Sports",sport:"Cricket",name:"MRF Genius Grand Edition Bat",rating:4.6,reviews:710,basePrice:11999,image:"https://your-cdn.com/sports/mrf-grand-bat.jpg",desc:"Top‑grade bat used by professional players.",specs:{Grade:"English willow",Profile:"Mid sweet spot",Weight:"1.1–1.2 kg"}},
+    {id:24,category:"Sports",sport:"Cricket",name:"Kookaburra Pro 1500 Batting Pads",rating:4.5,reviews:340,basePrice:4499,image:"https://your-cdn.com/sports/kookaburra-pads.jpg",desc:"Lightweight batting pads with high protection.",specs:{Type:"Batting pads",Level:"Advanced",Hand:"Right/Left"}},
+    {id:25,category:"Sports",sport:"Cricket",name:"SG Test Cricket Helmet",rating:4.3,reviews:280,basePrice:3499,image:"https://your-cdn.com/sports/sg-helmet.jpg",desc:"Cricket helmet with steel grill and neck protection.",specs:{Size:"Senior",Shell:"ABS",Grill:"Steel"}},
+    {id:26,category:"Sports",sport:"Cricket",name:"Adidas Cricket Shoes (Spikes)",rating:4.4,reviews:500,basePrice:5999,image:"https://your-cdn.com/sports/adidas-cricket-shoes.jpg",desc:"Lightweight cricket shoes with metal spikes.",specs:{Type:"Spikes",Surface:"Turf",SizeRange:"UK 6–11"}},
+    {id:27,category:"Sports",sport:"Cricket",name:"Gray‑Nicolls Abdominal Guard",rating:4.2,reviews:420,basePrice:499,image:"https://your-cdn.com/sports/graynicol-guard.jpg",desc:"High‑impact abdominal guard for cricket.",specs:{Type:"Guard",Material:"ABS plastic",Size:"Senior"}},
+    {id:28,category:"Sports",sport:"Cricket",name:"Puma Evo Batting Gloves",rating:4.5,reviews:360,basePrice:2499,image:"https://your-cdn.com/sports/puma-gloves.jpg",desc:"Comfortable batting gloves with extra finger protection.",specs:{Type:"Batting gloves",Hand:"Pair",Material:"PU + leather"}},
+    {id:29,category:"Sports",sport:"Cricket",name:"Cosco Cricket Kit Bag with Wheels",rating:4.3,reviews:310,basePrice:3299,image:"https://your-cdn.com/sports/cosco-kitbag.jpg",desc:"Spacious wheel kit bag to carry full cricket kit.",specs:{Type:"Kit bag",Wheels:"Yes",Compartments:"Multiple"}},
+    {id:30,category:"Sports",sport:"Cricket",name:"Nivia Practice Cricket Net (20m)",rating:4.1,reviews:190,basePrice:5999,image:"https://your-cdn.com/sports/nivia-net.jpg",desc:"Durable cricket practice net for training.",specs:{Length:"20 m",Material:"Nylon",Use:"Outdoor practice"}}
+  ];
+
+  const PRODUCTS = [
+    ...ELECTRONICS_PRODUCTS,
+    ...HOME_APPLIANCES_PRODUCTS,
+    ...SPORTS_PRODUCTS
+  ];
+
+  const panels = {
+    home:document.getElementById("panel-home"),
+    compare:document.getElementById("panel-compare"),
+    categories:document.getElementById("panel-categories"),
+    wishlist:document.getElementById("panel-wishlist"),
+    login:document.getElementById("panel-login"),
+    signup:document.getElementById("panel-signup")
+  };
+
+  const navLinks = document.querySelectorAll("[data-view]");
+  const productGrid = document.getElementById("productGrid");
+  const categoryGrid = document.getElementById("categoryGrid");
+  const wishlistGrid = document.getElementById("wishlistGrid");
+  const wishlistBtn = document.getElementById("wishlistBtn");
+  const searchBox = document.getElementById("searchBox");
+  const searchBtn = document.getElementById("searchBtn");
+
+  const detailName = document.getElementById("detailName");
+  const detailPrice = document.getElementById("detailPrice");
+  const detailBestText = document.getElementById("detailBestText");
+  const detailSpecs = document.getElementById("detailSpecs");
+  const detailUpdated = document.getElementById("detailUpdated");
+  const tableWrap = document.getElementById("tableWrap");
+  const buyNowBtn = document.getElementById("buyNowBtn");
+
+  let currentBestUrl = "#";
+  let wishlist = [];
+
+  function formatINR(v){return "₹"+v.toLocaleString("en-IN");}
+
+  function showPanel(name){
+    Object.keys(panels).forEach(k=>{
+      panels[k].classList.toggle("active",k===name);
+    });
+    navLinks.forEach(el=>{
+      const v = el.getAttribute("data-view");
+      if(v==="login" || v==="signup") return;
+      el.classList.toggle("active",v===name || (name==="home" && v==="home"));
+    });
+  }
+
+  navLinks.forEach(el=>{
+    el.addEventListener("click",()=>{
+      const view = el.getAttribute("data-view");
+      if(view==="compare") showPanel("compare");
+      else if(view==="categories") showPanel("categories");
+      else if(view==="login") showPanel("login");
+      else if(view==="signup") showPanel("signup");
+      else showPanel("home");
+    });
+  });
+
+  function updateWishlistBadge(){
+    wishlistBtn.textContent = `Wishlist (${wishlist.length})`;
+  }
+
+  function cardHtml(p){
+    const inWishlist = wishlist.includes(p.id);
+    return `
+      <article class="p-card" data-id="${p.id}">
+        <div class="p-image">
+          <img src="${p.image}" alt="${p.name}">
+        </div>
+        <div class="p-meta-top">
+          <span class="badge-cat">${p.category}</span>
+          <span class="rating">★ ${p.rating.toFixed(1)}
+            <span style="color:#9ca3af;">(${p.reviews})</span>
+          </span>
+        </div>
+        <div class="p-name">${p.name}</div>
+        <div class="p-desc">${p.desc}</div>
+        <div class="p-footer">
+          <div>
+            <div class="price-label">Starting from</div>
+            <div class="price-main">${formatINR(p.basePrice)}</div>
+          </div>
+          <div>
+            <button class="btn-view" data-wish="${p.id}" type="button"
+              style="padding:4px 10px;font-size:11px;">
+              ${inWishlist ? "★ Saved" : "☆ Wishlist"}
+            </button>
+          </div>
+        </div>
+      </article>
+    `;
+  }
+
+  function bindCardClicks(root){
+    root.querySelectorAll(".p-card").forEach(card=>{
+      card.addEventListener("click",e=>{
+        const wishBtn = e.target.closest("button[data-wish]");
+        if(wishBtn) return;
+        const id = Number(card.getAttribute("data-id"));
+        const product = PRODUCTS.find(p=>p.id===id);
+        if(product) showProduct(product);
+      });
+    });
+
+    root.querySelectorAll("button[data-wish]").forEach(btn=>{
+      btn.addEventListener("click",e=>{
+        e.stopPropagation();
+        const id = Number(btn.getAttribute("data-wish"));
+        toggleWishlist(id);
+      });
+    });
+  }
+
+  function renderTrending(){
+    const items = PRODUCTS.slice(0,6);
+    productGrid.innerHTML = items.map(cardHtml).join("");
+    bindCardClicks(productGrid);
+  }
+
+  function renderCategory(cat){
+    const items = PRODUCTS.filter(p=>p.category===cat);
+    categoryGrid.innerHTML = items.map(cardHtml).join("");
+    bindCardClicks(categoryGrid);
+  }
+
+  function renderWishlist(){
+    if(wishlist.length === 0){
+      wishlistGrid.innerHTML = "<p class='muted'>Your wishlist is empty.</p>";
+      return;
+    }
+    const items = PRODUCTS.filter(p=>wishlist.includes(p.id));
+    wishlistGrid.innerHTML = items.map(cardHtml).join("");
+    bindCardClicks(wishlistGrid);
+  }
+
+  function toggleWishlist(id){
+    const index = wishlist.indexOf(id);
+    if(index === -1) wishlist.push(id);
+    else wishlist.splice(index,1);
+    updateWishlistBadge();
+    renderTrending();
+    const activeCatTab = document.querySelector(".subtab.active");
+    if(activeCatTab) renderCategory(activeCatTab.getAttribute("data-subcat"));
+    renderWishlist();
+  }
+
+  async function fetchPrices(product){
+    const resp = await fetch("/api/prices?query="+encodeURIComponent(product.name));
+    return resp.json();
+  }
+
+  async function showProduct(product){
+    showPanel("compare");
+    detailName.textContent = product.name;
+    detailSpecs.innerHTML = Object.entries(product.specs)
+      .map(([k,v])=>`<span><strong>${k}</strong>${v}</span>`).join("");
+    detailPrice.textContent = "";
+    detailBestText.style.display = "none";
+    detailUpdated.textContent = "";
+    tableWrap.textContent = "Fetching latest prices…";
+
+    try{
+      const data = await fetchPrices(product);
+      const prices = data.prices || [];
+      if(!prices.length){
+        tableWrap.textContent = "No prices found.";
+        return;
+      }
+      const sorted = [...prices].sort((a,b)=>a.price-b.price);
+      const best = sorted[0];
+      currentBestUrl = best.url;
+      detailPrice.textContent = formatINR(best.price);
+      detailBestText.style.display = "block";
+      detailUpdated.textContent = "Updated "+new Date().toLocaleTimeString();
+
+      const rows = sorted.map(p=>`
+        <tr class="${p.best?"best-row":""}">
+          <td>${p.store}${p.best?'<span class="badge-best">Best deal</span>':""}</td>
+          <td><span class="status-ok">${p.status}</span></td>
+          <td>${p.shipping}</td>
+          <td>${formatINR(p.price)}</td>
+          <td>
+            <a href="${p.url}" target="_blank" rel="noopener noreferrer">
+              <button class="btn-view" type="button">View</button>
+            </a>
+          </td>
+        </tr>
+      `).join("");
+
+      tableWrap.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Retailer</th>
+              <th>Status</th>
+              <th>Shipping</th>
+              <th>Price</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    }catch(e){
+      console.error(e);
+      tableWrap.textContent = "Error fetching prices.";
+    }
+  }
+
+  searchBtn.addEventListener("click",()=>{
+    const q = searchBox.value.trim().toLowerCase();
+    if(!q){searchBox.focus();return;}
+    const match = PRODUCTS.find(p=>p.name.toLowerCase().includes(q)) || PRODUCTS[0];
+    showProduct(match);
+  });
+  searchBox.addEventListener("keypress",e=>{
+    if(e.key==="Enter") searchBtn.click();
+  });
+
+  document.querySelectorAll(".cat-pill").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const cat = btn.getAttribute("data-cat");
+      showPanel("categories");
+      document.querySelectorAll(".subtab").forEach(t=>{
+        t.classList.toggle("active",t.getAttribute("data-subcat")===cat);
+      });
+      renderCategory(cat);
+    });
+  });
+
+  document.querySelectorAll(".subtab").forEach(t=>{
+    t.addEventListener("click",()=>{
+      const cat = t.getAttribute("data-subcat");
+      document.querySelectorAll(".subtab").forEach(x=>x.classList.remove("active"));
+      t.classList.add("active");
+      renderCategory(cat);
+    });
+  });
+
+  buyNowBtn.addEventListener("click",()=>{
+    if(currentBestUrl && currentBestUrl!=="#"){
+      window.open(currentBestUrl,"_blank","noopener,noreferrer");
+    }
+  });
+
+  wishlistBtn.addEventListener("click",()=>{
+    showPanel("wishlist");
+    renderWishlist();
+  });
+
+  renderTrending();
+  renderCategory("Electronics");
+  updateWishlistBadge();
+</script>
+</body>
+</html>
