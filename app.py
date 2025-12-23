@@ -132,13 +132,7 @@ def _flipkart_price(query):
         }
     except Exception as e:
         print("Flipkart price error:", e)
-       return {
-        "store": "Flipkart",
-        "price": None,  # will not be best if Amazon has price
-        "shipping": "See on Flipkart",
-        "status": "Check site",
-        "url": f"https://www.flipkart.com/search?q={query}",
-    }
+       return None
 
 
 # ---- REAL PRICES API ----
