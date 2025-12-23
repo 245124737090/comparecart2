@@ -58,10 +58,9 @@ def logout():
 
 # ---- PRICE HELPERS ----
 
-RAINFOREST_API_KEY = os.getenv("RAINFOREST_API_KEY")  # set in Render dashboard
+RAINFOREST_API_KEY = os.getenv("RAINFOREST_API_KEY")
 
 def _parse_price(value):
-    """Convert '₹50,000' or similar to int 50000."""
     if isinstance(value, (int, float)):
         return int(value)
     if not value:
@@ -70,7 +69,6 @@ def _parse_price(value):
     return int(digits) if digits else None
 
 def _amazon_price(query):
-    """Fetch first Amazon.in result via Rainforest API."""
     if not RAINFOREST_API_KEY:
         return None
 
@@ -82,7 +80,6 @@ def _amazon_price(query):
                 "type": "search",
                 "amazon_domain": "amazon.in",
                 "search_term": query,
-                "sort_by": "featured"
             },
             timeout=10,
         )
@@ -92,8 +89,7 @@ def _amazon_price(query):
             return None
 
         item = results[0]
-        price_obj = item.get("price") or {}
-        price = _parse_price(price_obj.get("raw") or price_obj.get("value"))
+        price = _parse_price(item.get("price", {}).get("raw"))
 
         return {
             "store": "Amazon",
@@ -103,7 +99,7 @@ def _amazon_price(query):
             "url": item.get("link") or "https://www.amazon.in",
         }
     except Exception as e:
-        print("Amazon price error:", e)
+        print("Amazon error:", e)
         return None
 
 def _reliance_price(query):
@@ -121,7 +117,6 @@ def _reliance_price(query):
             },
             timeout=10,
         )
-
         data = resp.json()
         results = data.get("search_results") or []
         if not results:
@@ -138,10 +133,8 @@ def _reliance_price(query):
             "url": item.get("link") or "https://www.reliancedigital.in",
         }
     except Exception as e:
-        print("Reliance price error:", e)
+        print("Reliance error:", e)
         return None
-
-
 
 # ---- REAL PRICES API ----
 
@@ -151,19 +144,14 @@ def api_prices():
     if not query:
         return jsonify({"error": "query required", "prices": []}), 400
 
+    amazon = _amazon_price(query)
+    reliance = _reliance_price(query)
 
-amazon = _amazon_price(query)
-reliance = _reliance_price(query)
-
-items = [p for p in [amazon, reliance] if p]
-
-
-
+    items = [p for p in [amazon, reliance] if p]
 
     if not items:
         return jsonify({"query": query, "prices": []})
 
-    # mark best (cheapest) price
     valid = [p for p in items if p.get("price") is not None]
     if valid:
         best_price = min(p["price"] for p in valid)
@@ -177,3 +165,4 @@ items = [p for p in [amazon, reliance] if p]
 
 if __name__ == "__main__":
     app.run(debug=True)
+
