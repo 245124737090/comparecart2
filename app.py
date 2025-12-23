@@ -114,7 +114,7 @@ def _flipkart_price(query):
         resp = requests.get(
             "https://api.rainforestapi.com/request",
             params={
-                "api_key": 49DF110264CF4C8792EFB867F19BC5D5,
+                "api_key": RAINFOREST_API_KEY,
                 "type": "search",
                 "amazon_domain": "flipkart.com",
                 "search_term": query,
