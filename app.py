@@ -51,76 +51,60 @@ def logout():
 # --------------------
 # PRICE HELPERS
 # --------------------
-RAINFOREST_API_KEY = os.getenv("RAINFOREST_API_KEY")
+SERPAPI_KEY = os.getenv("SERPAPI_KEY")
 
-def _parse_price(value):
-    """Convert '₹50,000' or similar to int 50000."""
-    if isinstance(value, (int, float)):
-        return int(value)
-    if not value:
+def _parse_price(text):
+    """Convert price string like '₹99,999' to integer."""
+    if not text:
         return None
-    digits = "".join(ch for ch in str(value) if ch.isdigit())
+    digits = "".join(c for c in str(text) if c.isdigit())
     return int(digits) if digits else None
 
-def _amazon_price(query):
-    if not RAINFOREST_API_KEY:
-        return None
+def _searchapi_prices(query):
+    """Get Amazon + Flipkart prices using SerpApi."""
+    if not SERPAPI_KEY:
+        return []
 
-    try:
-        resp = requests.get(
-            "https://api.rainforestapi.com/request",
-            params={
-                "api_key": RAINFOREST_API_KEY,
-                "type": "search",
-                "amazon_domain": "amazon.in",
-                "search_term": query,
-                "sort_by": "featured"
-            },
-            timeout=10,
-        )
-        data = resp.json()
-        results = data.get("search_results") or []
-        if not results:
-            return None
+    items = []
 
-        item = results[0]
-        price_obj = item.get("price") or {}
-        price = _parse_price(price_obj.get("raw") or price_obj.get("value"))
+    for store in ["amazon", "flipkart"]:
+        try:
+            resp = requests.get(
+                "https://serpapi.com/search",
+                params={
+                    "engine": f"{store}_search",
+                    "q": query,
+                    "location": "India",
+                    "hl": "en",
+                    "gl": "in",
+                    "api_key": SERPAPI_KEY,
+                },
+                timeout=10,
+            )
+            data = resp.json()
+            # SerpApi returns different structures per engine
+            results = data.get("shopping_results") or data.get("organic_results") or []
 
-        return {
-            "store": "Amazon",
-            "price": price,
-            "shipping": "See on Amazon",
-            "status": "In Stock",
-            "url": item.get("link") or "https://www.amazon.in",
-        }
-    except Exception as e:
-        print("Amazon price error:", e)
-        return None
+            if not results:
+                continue
 
-def _flipkart_price(query):
-    """Fetch first Flipkart result via public scraper API."""
-    try:
-        url = f"https://flipkart-scraper-api.vercel.app/search/{query}"
-        resp = requests.get(url, timeout=10)
-        data = resp.json()
-        results = data.get("result") or data.get("results") or []
-        if not results:
-            return None
+            first = results[0]
+            price = _parse_price(first.get("price") or first.get("raw_price"))
 
-        item = results[0]
-        price = _parse_price(item.get("current_price") or item.get("price"))
+            if not price:
+                continue
 
-        return {
-            "store": "Flipkart",
-            "price": price,
-            "shipping": "See on Flipkart",
-            "status": "In Stock",
-            "url": item.get("link") or item.get("query_url") or "https://www.flipkart.com",
-        }
-    except Exception as e:
-        print("Flipkart price error:", e)
-        return None
+            items.append({
+                "store": store.capitalize(),
+                "price": price,
+                "shipping": "See on site",
+                "status": "In Stock",
+                "url": first.get("link") or first.get("product_link"),
+            })
+        except Exception as e:
+            print(f"{store.capitalize()} SerpApi error:", e)
+
+    return items
 
 # --------------------
 # API ENDPOINT
@@ -131,10 +115,7 @@ def api_prices():
     if not query:
         return jsonify({"error": "query required", "prices": []}), 400
 
-    amazon = _amazon_price(query)
-    flipkart = _flipkart_price(query)
-
-    items = [p for p in [amazon, flipkart] if p]
+    items = _searchapi_prices(query)
 
     if not items:
         return jsonify({"query": query, "prices": []})
@@ -144,7 +125,7 @@ def api_prices():
     if valid:
         best_price = min(p["price"] for p in valid)
         for p in items:
-            p["best"] = p.get("price") == best_price
+            p["best"] = p["price"] == best_price
     else:
         for p in items:
             p["best"] = False
@@ -154,3 +135,4 @@ def api_prices():
 # --------------------
 if __name__ == "__main__":
     app.run(debug=True)
+
