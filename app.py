@@ -51,60 +51,79 @@ def logout():
 # --------------------
 # PRICE HELPERS
 # --------------------
-SERPAPI_KEY = os.getenv("SERPAPI_KEY")
+RAINFOREST_API_KEY = os.getenv("RAINFOREST_API_KEY")
+RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY")
+RAPIDAPI_HOST = "flipkart1.p.rapidapi.com"  # RapidAPI host
 
-def _parse_price(text):
-    """Convert price string like '₹99,999' to integer."""
-    if not text:
+def _parse_price(value):
+    """Convert price like '₹99,999' or 99999 to int."""
+    if not value:
         return None
-    digits = "".join(c for c in str(text) if c.isdigit())
+    if isinstance(value, (int, float)):
+        return int(value)
+    digits = "".join(c for c in str(value) if c.isdigit())
     return int(digits) if digits else None
 
-def _searchapi_prices(query):
-    """Get Amazon + Flipkart prices using SerpApi."""
-    if not SERPAPI_KEY:
-        return []
+def get_amazon_price(query):
+    """Fetch first Amazon.in result using Rainforest API."""
+    if not RAINFOREST_API_KEY:
+        return None
+    try:
+        resp = requests.get(
+            "https://api.rainforestapi.com/request",
+            params={
+                "api_key": RAINFOREST_API_KEY,
+                "type": "search",
+                "amazon_domain": "amazon.in",
+                "search_term": query,
+                "sort_by": "featured"
+            },
+            timeout=10
+        )
+        data = resp.json()
+        results = data.get("search_results") or []
+        if not results:
+            return None
+        first = results[0]
+        price = _parse_price(first.get("price", {}).get("raw"))
+        return {
+            "store": "Amazon",
+            "price": price,
+            "shipping": "See on Amazon",
+            "status": "In Stock",
+            "url": first.get("link") or "https://www.amazon.in",
+        }
+    except Exception as e:
+        print("Amazon price error:", e)
+        return None
 
-    items = []
-
-    for store in ["amazon", "flipkart"]:
-        try:
-            resp = requests.get(
-                "https://serpapi.com/search",
-                params={
-                    "engine": f"{store}_search",
-                    "q": query,
-                    "location": "India",
-                    "hl": "en",
-                    "gl": "in",
-                    "api_key": SERPAPI_KEY,
-                },
-                timeout=10,
-            )
-            data = resp.json()
-            # SerpApi returns different structures per engine
-            results = data.get("shopping_results") or data.get("organic_results") or []
-
-            if not results:
-                continue
-
-            first = results[0]
-            price = _parse_price(first.get("price") or first.get("raw_price"))
-
-            if not price:
-                continue
-
-            items.append({
-                "store": store.capitalize(),
-                "price": price,
-                "shipping": "See on site",
-                "status": "In Stock",
-                "url": first.get("link") or first.get("product_link"),
-            })
-        except Exception as e:
-            print(f"{store.capitalize()} SerpApi error:", e)
-
-    return items
+def get_flipkart_price(query):
+    """Fetch first Flipkart result using RapidAPI scraper."""
+    if not RAPIDAPI_KEY:
+        return None
+    try:
+        url = f"https://flipkart1.p.rapidapi.com/search/autocomplete?query={query}"
+        headers = {
+            "X-RapidAPI-Key": RAPIDAPI_KEY,
+            "X-RapidAPI-Host": RAPIDAPI_HOST
+        }
+        resp = requests.get(url, headers=headers, timeout=10)
+        data = resp.json()
+        products = data.get("products") or []
+        if not products:
+            return None
+        first = products[0]
+        price = _parse_price(first.get("price", {}).get("value"))
+        return {
+            "store": "Flipkart",
+            "price": price,
+            "shipping": "See on Flipkart",
+            "status": "In Stock",
+            "url": first.get("url") or "https://www.flipkart.com",
+        }
+    except Exception as e:
+        print("Flipkart price error:", e)
+        return None
 
 # --------------------
 # API ENDPOINT
@@ -115,15 +134,18 @@ def api_prices():
     if not query:
         return jsonify({"error": "query required", "prices": []}), 400
 
-    items = _searchapi_prices(query)
+    amazon = get_amazon_price(query)
+    flipkart = get_flipkart_price(query)
+
+    items = [p for p in [amazon, flipkart] if p]
 
     if not items:
         return jsonify({"query": query, "prices": []})
 
-    # mark best (cheapest) price
-    valid = [p for p in items if p.get("price") is not None]
-    if valid:
-        best_price = min(p["price"] for p in valid)
+    # mark best price
+    valid_prices = [p["price"] for p in items if p.get("price") is not None]
+    if valid_prices:
+        best_price = min(valid_prices)
         for p in items:
             p["best"] = p["price"] == best_price
     else:
@@ -135,4 +157,5 @@ def api_prices():
 # --------------------
 if __name__ == "__main__":
     app.run(debug=True)
+
 
