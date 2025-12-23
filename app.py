@@ -106,7 +106,7 @@ def _amazon_price(query):
         print("Amazon price error:", e)
         return None
 
-def _flipkart_price(query):
+def _reliance_price(query):
     if not RAINFOREST_API_KEY:
         return None
 
@@ -116,7 +116,7 @@ def _flipkart_price(query):
             params={
                 "api_key": RAINFOREST_API_KEY,
                 "type": "search",
-                "amazon_domain": "flipkart.com",
+                "amazon_domain": "reliancedigital.in",
                 "search_term": query,
             },
             timeout=10,
@@ -131,14 +131,14 @@ def _flipkart_price(query):
         price = _parse_price(item.get("price", {}).get("raw"))
 
         return {
-            "store": "Flipkart",
+            "store": "Reliance Digital",
             "price": price,
-            "shipping": "See on Flipkart",
+            "shipping": "See on Reliance",
             "status": "In Stock",
-            "url": item.get("link") or "https://www.flipkart.com",
+            "url": item.get("link") or "https://www.reliancedigital.in",
         }
     except Exception as e:
-        print("Flipkart Rainforest error:", e)
+        print("Reliance price error:", e)
         return None
 
 
@@ -151,11 +151,14 @@ def api_prices():
     if not query:
         return jsonify({"error": "query required", "prices": []}), 400
 
-    # get data from both sources
-    flipkart = _flipkart_price(query)
-    amazon = _amazon_price(query)
 
-    items = [p for p in [flipkart, amazon] if p]
+amazon = _amazon_price(query)
+reliance = _reliance_price(query)
+
+items = [p for p in [amazon, reliance] if p]
+
+
+
 
     if not items:
         return jsonify({"query": query, "prices": []})
