@@ -107,32 +107,40 @@ def _amazon_price(query):
         return None
 
 def _flipkart_price(query):
-    """Fetch first Flipkart result via public scraper API."""
-    try:
-        url = f"https://flipkart-scraper-api.vercel.app/search/{query}"
-        print("Flipkart request =>", url)
-        resp = requests.get(url, timeout=10)
-        data = resp.json()
-        print("Flipkart raw:", data)
+    if not RAINFOREST_API_KEY:
+        return None
 
-        results = data.get("result") or data.get("results") or []
+    try:
+        resp = requests.get(
+            "https://api.rainforestapi.com/request",
+            params={
+                "api_key": 49DF110264CF4C8792EFB867F19BC5D5,
+                "type": "search",
+                "amazon_domain": "flipkart.com",
+                "search_term": query,
+            },
+            timeout=10,
+        )
+
+        data = resp.json()
+        results = data.get("search_results") or []
         if not results:
-            print("Flipkart: no results for", query)
             return None
 
         item = results[0]
-        price = _parse_price(item.get("current_price") or item.get("price"))
+        price = _parse_price(item.get("price", {}).get("raw"))
 
         return {
             "store": "Flipkart",
             "price": price,
             "shipping": "See on Flipkart",
             "status": "In Stock",
-            "url": item.get("link") or item.get("query_url") or "https://www.flipkart.com",
+            "url": item.get("link") or "https://www.flipkart.com",
         }
     except Exception as e:
-        print("Flipkart price error:", e)
+        print("Flipkart Rainforest error:", e)
         return None
+
 
 
 # ---- REAL PRICES API ----
