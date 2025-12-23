@@ -609,10 +609,25 @@
     renderWishlist();
   }
 
-  async function fetchPrices(product){
-    const resp = await fetch("/api/prices?query="+encodeURIComponent(product.name));
-    return resp.json();
+  
+async function fetchPrices(product){
+  try{
+    const resp = await fetch(
+      "/api/prices?query=" + encodeURIComponent(product.name),
+      { headers: { "Accept": "application/json" } }
+    );
+    if(!resp.ok){
+      console.error("API error", resp.status);
+      return { prices: [] };
+    }
+    const data = await resp.json();
+    return data;   // { prices: [...] }
+  }catch(e){
+    console.error(e);
+    return { prices: [] };
   }
+}
+
 
   async function showProduct(product){
     showPanel("compare");
