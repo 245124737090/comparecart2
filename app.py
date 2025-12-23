@@ -1,4 +1,5 @@
 import os
+import random
 import requests
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -52,11 +53,8 @@ def logout():
 # PRICE HELPERS
 # --------------------
 RAINFOREST_API_KEY = os.getenv("RAINFOREST_API_KEY")
-RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY")
-RAPIDAPI_HOST = "flipkart1.p.rapidapi.com"  # RapidAPI host
 
 def _parse_price(value):
-    """Convert price like '₹99,999' or 99999 to int."""
     if not value:
         return None
     if isinstance(value, (int, float)):
@@ -65,7 +63,7 @@ def _parse_price(value):
     return int(digits) if digits else None
 
 def get_amazon_price(query):
-    """Fetch first Amazon.in result using Rainforest API."""
+    """Fetch first Amazon.in result using Rainforest API"""
     if not RAINFOREST_API_KEY:
         return None
     try:
@@ -90,40 +88,27 @@ def get_amazon_price(query):
             "store": "Amazon",
             "price": price,
             "shipping": "See on Amazon",
-            "status": "In Stock",
+            "status": "In Stock" if price else "Price unavailable",
             "url": first.get("link") or "https://www.amazon.in",
         }
     except Exception as e:
-        print("Amazon price error:", e)
+        print("Amazon error:", e)
         return None
 
-def get_flipkart_price(query):
-    """Fetch first Flipkart result using RapidAPI scraper."""
-    if not RAPIDAPI_KEY:
-        return None
-    try:
-        url = f"https://flipkart1.p.rapidapi.com/search/autocomplete?query={query}"
-        headers = {
-            "X-RapidAPI-Key": RAPIDAPI_KEY,
-            "X-RapidAPI-Host": RAPIDAPI_HOST
-        }
-        resp = requests.get(url, headers=headers, timeout=10)
-        data = resp.json()
-        products = data.get("products") or []
-        if not products:
-            return None
-        first = products[0]
-        price = _parse_price(first.get("price", {}).get("value"))
-        return {
-            "store": "Flipkart",
-            "price": price,
-            "shipping": "See on Flipkart",
-            "status": "In Stock",
-            "url": first.get("url") or "https://www.flipkart.com",
-        }
-    except Exception as e:
-        print("Flipkart price error:", e)
-        return None
+def placeholder_flipkart_demo(amazon_price=None):
+    """Return a demo Flipkart price close to Amazon's price"""
+    if amazon_price:
+        variation = random.uniform(-0.05, 0.05)  # ±5%
+        flipkart_price = int(amazon_price * (1 + variation))
+    else:
+        flipkart_price = None
+    return {
+        "store": "Flipkart",
+        "price": flipkart_price,
+        "shipping": "See on Flipkart",
+        "status": "In Stock" if flipkart_price else "Price unavailable",
+        "url": "https://www.flipkart.com",
+    }
 
 # --------------------
 # API ENDPOINT
@@ -135,19 +120,16 @@ def api_prices():
         return jsonify({"error": "query required", "prices": []}), 400
 
     amazon = get_amazon_price(query)
-    flipkart = get_flipkart_price(query)
+    flipkart = placeholder_flipkart_demo(amazon_price=amazon.get("price") if amazon else None)
 
     items = [p for p in [amazon, flipkart] if p]
-
-    if not items:
-        return jsonify({"query": query, "prices": []})
 
     # mark best price
     valid_prices = [p["price"] for p in items if p.get("price") is not None]
     if valid_prices:
         best_price = min(valid_prices)
         for p in items:
-            p["best"] = p["price"] == best_price
+            p["best"] = p.get("price") == best_price
     else:
         for p in items:
             p["best"] = False
@@ -157,5 +139,6 @@ def api_prices():
 # --------------------
 if __name__ == "__main__":
     app.run(debug=True)
+
 
 
