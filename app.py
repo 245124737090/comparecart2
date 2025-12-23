@@ -81,6 +81,7 @@ def get_amazon_prices(query, max_results=5):
         )
         data = resp.json()
         results = data.get("search_results") or []
+        print(f"Amazon API results found: {len(results)}")  # debug
         items = []
 
         for result in results[:max_results]:
@@ -93,16 +94,17 @@ def get_amazon_prices(query, max_results=5):
                 "status": "In Stock" if price else "Price unavailable",
                 "url": result.get("link") or "https://www.amazon.in",
             })
-
         return items
     except Exception as e:
         print("Amazon error:", e)
         return []
 
-def placeholder_flipkart_demo_multiple(amazon_items):
-    """Return demo Flipkart items close to Amazon prices"""
+def placeholder_flipkart_demo_multiple(amazon_items, min_items=5):
+    """Return demo Flipkart items close to Amazon prices.
+       Fill items up to min_items for demo purposes."""
     flipkart_items = []
 
+    # simulate one Flipkart item per Amazon item
     for item in amazon_items:
         price = item.get("price")
         variation = random.uniform(-0.05, 0.05) if price else None
@@ -119,6 +121,21 @@ def placeholder_flipkart_demo_multiple(amazon_items):
             "status": "In Stock" if flipkart_price else "Price unavailable",
             "url": search_url,
         })
+
+    # fill additional demo items if Amazon returned less than min_items
+    while len(flipkart_items) + len(amazon_items) < min_items:
+        fake_title = f"{query} Item {len(flipkart_items)+1}"
+        fake_price = int(random.uniform(500, 5000))  # random demo price
+        search_url = f"https://www.flipkart.com/search?q={fake_title.replace(' ', '+')}"
+        flipkart_items.append({
+            "store": "Flipkart",
+            "title": fake_title,
+            "price": fake_price,
+            "shipping": "See on Flipkart",
+            "status": "In Stock",
+            "url": search_url,
+        })
+
     return flipkart_items
 
 # --------------------
@@ -126,12 +143,13 @@ def placeholder_flipkart_demo_multiple(amazon_items):
 # --------------------
 @app.route("/api/prices")
 def api_prices():
+    global query
     query = (request.args.get("query") or "").strip()
     if not query:
         return jsonify({"error": "query required", "prices": []}), 400
 
-    amazon_items = get_amazon_prices(query)
-    flipkart_items = placeholder_flipkart_demo_multiple(amazon_items)
+    amazon_items = get_amazon_prices(query, max_results=3)  # fetch top 3 Amazon items
+    flipkart_items = placeholder_flipkart_demo_multiple(amazon_items, min_items=5)
 
     all_items = amazon_items + flipkart_items
 
@@ -150,6 +168,7 @@ def api_prices():
 # --------------------
 if __name__ == "__main__":
     app.run(debug=True)
+
 
 
 
