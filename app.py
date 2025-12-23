@@ -95,19 +95,20 @@ def get_amazon_price(query):
         print("Amazon error:", e)
         return None
 
-def placeholder_flipkart_demo(amazon_price=None):
-    """Return a demo Flipkart price close to Amazon's price"""
+def placeholder_flipkart_demo(amazon_price=None, query=None):
+    """Demo Flipkart price near Amazon + search link"""
     if amazon_price:
         variation = random.uniform(-0.05, 0.05)  # ±5%
         flipkart_price = int(amazon_price * (1 + variation))
     else:
         flipkart_price = None
+    search_url = f"https://www.flipkart.com/search?q={query.replace(' ', '+')}" if query else "https://www.flipkart.com"
     return {
         "store": "Flipkart",
         "price": flipkart_price,
         "shipping": "See on Flipkart",
         "status": "In Stock" if flipkart_price else "Price unavailable",
-        "url": "https://www.flipkart.com",
+        "url": search_url,
     }
 
 # --------------------
@@ -120,7 +121,7 @@ def api_prices():
         return jsonify({"error": "query required", "prices": []}), 400
 
     amazon = get_amazon_price(query)
-    flipkart = placeholder_flipkart_demo(amazon_price=amazon.get("price") if amazon else None)
+    flipkart = placeholder_flipkart_demo(amazon_price=amazon.get("price") if amazon else None, query=query)
 
     items = [p for p in [amazon, flipkart] if p]
 
@@ -139,6 +140,7 @@ def api_prices():
 # --------------------
 if __name__ == "__main__":
     app.run(debug=True)
+
 
 
 
