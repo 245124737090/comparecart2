@@ -6,163 +6,139 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.secret_key = "change-this-secret-key"
 
-# simple in-memory "database"
-users = {}  # {"email": {"password_hash": "..."}}
-
-# ---- AUTH + PAGES ----
+# --------------------
+# AUTH
+# --------------------
+users = {}
 
 @app.route("/")
 def home():
-    user_email = session.get("user_email")
-    return render_template("index.html", user_email=user_email)
+    return render_template("index.html", user_email=session.get("user_email"))
 
 @app.route("/signup", methods=["POST"])
 def signup():
     email = request.form.get("email", "").strip().lower()
     password = request.form.get("password", "").strip()
-
     if not email or not password:
-        flash("Email and password are required.")
-        return redirect(url_for("home") + "#signup")
-
+        flash("Email and password required")
+        return redirect(url_for("home"))
     if email in users:
-        flash("User already exists. Please log in.")
-        return redirect(url_for("home") + "#login")
-
-    users[email] = {
-        "password_hash": generate_password_hash(password)
-    }
+        flash("User already exists")
+        return redirect(url_for("home"))
+    users[email] = {"password_hash": generate_password_hash(password)}
     session["user_email"] = email
-    flash("Account created and logged in.")
+    flash("Signed up successfully")
     return redirect(url_for("home"))
 
 @app.route("/login", methods=["POST"])
 def login():
     email = request.form.get("email", "").strip().lower()
     password = request.form.get("password", "").strip()
-
     user = users.get(email)
     if not user or not check_password_hash(user["password_hash"], password):
-        flash("Invalid email or password.")
-        return redirect(url_for("home") + "#login")
-
+        flash("Invalid credentials")
+        return redirect(url_for("home"))
     session["user_email"] = email
-    flash("Logged in successfully.")
+    flash("Logged in")
     return redirect(url_for("home"))
 
 @app.route("/logout")
 def logout():
     session.pop("user_email", None)
-    flash("Logged out.")
+    flash("Logged out")
     return redirect(url_for("home"))
 
-# ---- PRICE HELPERS ----
+# --------------------
+# PRICE HELPERS
+# --------------------
+SERPAPI_KEY = os.getenv("SERPAPI_KEY")
 
-RAINFOREST_API_KEY = os.getenv("RAINFOREST_API_KEY")
-
-def _parse_price(value):
-    if isinstance(value, (int, float)):
-        return int(value)
-    if not value:
+def _parse_price(text):
+    if not text:
         return None
-    digits = "".join(ch for ch in str(value) if ch.isdigit())
+    digits = "".join(c for c in text if c.isdigit())
     return int(digits) if digits else None
 
-def _amazon_price(query):
-    if not RAINFOREST_API_KEY:
-        return None
+def _serpapi_prices(query):
+    """Fetch Amazon, Flipkart, Croma, Reliance via Google Shopping"""
+    if not SERPAPI_KEY:
+        return []
 
     try:
         resp = requests.get(
-            "https://api.rainforestapi.com/request",
+            "https://serpapi.com/search",
             params={
-                "api_key": RAINFOREST_API_KEY,
-                "type": "search",
-                "amazon_domain": "amazon.in",
-                "search_term": query,
+                "engine": "google_shopping",
+                "q": query,
+                "location": "India",
+                "hl": "en",
+                "gl": "in",
+                "api_key": SERPAPI_KEY,
             },
             timeout=10,
         )
+
         data = resp.json()
-        results = data.get("search_results") or []
-        if not results:
-            return None
+        results = data.get("shopping_results", [])
+        items = []
 
-        item = results[0]
-        price = _parse_price(item.get("price", {}).get("raw"))
+        for r in results:
+            source = (r.get("source") or "").lower()
 
-        return {
-            "store": "Amazon",
-            "price": price,
-            "shipping": "See on Amazon",
-            "status": "In Stock",
-            "url": item.get("link") or "https://www.amazon.in",
-        }
+            # Only keep the 4 stores
+            if "amazon" in source:
+                store = "Amazon"
+            elif "flipkart" in source:
+                store = "Flipkart"
+            elif "croma" in source:
+                store = "Croma"
+            elif "reliance" in source:
+                store = "Reliance Digital"
+            else:
+                continue
+
+            items.append({
+                "store": store,
+                "price": _parse_price(r.get("price")),
+                "shipping": "See on site",
+                "status": "In Stock",
+                "url": r.get("link"),
+            })
+
+        return items
+
     except Exception as e:
-        print("Amazon error:", e)
-        return None
+        print("SerpApi error:", e)
+        return []
 
-def _reliance_price(query):
-    if not RAINFOREST_API_KEY:
-        return None
-
-    try:
-        resp = requests.get(
-            "https://api.rainforestapi.com/request",
-            params={
-                "api_key": RAINFOREST_API_KEY,
-                "type": "search",
-                "amazon_domain": "reliancedigital.in",
-                "search_term": query,
-            },
-            timeout=10,
-        )
-        data = resp.json()
-        results = data.get("search_results") or []
-        if not results:
-            return None
-
-        item = results[0]
-        price = _parse_price(item.get("price", {}).get("raw"))
-
-        return {
-            "store": "Reliance Digital",
-            "price": price,
-            "shipping": "See on Reliance",
-            "status": "In Stock",
-            "url": item.get("link") or "https://www.reliancedigital.in",
-        }
-    except Exception as e:
-        print("Reliance error:", e)
-        return None
-
-# ---- REAL PRICES API ----
-
+# --------------------
+# API ENDPOINT
+# --------------------
 @app.route("/api/prices")
 def api_prices():
     query = (request.args.get("query") or "").strip()
     if not query:
         return jsonify({"error": "query required", "prices": []}), 400
 
-    amazon = _amazon_price(query)
-    reliance = _reliance_price(query)
-
-    items = [p for p in [amazon, reliance] if p]
+    items = _serpapi_prices(query)
 
     if not items:
         return jsonify({"query": query, "prices": []})
 
-    valid = [p for p in items if p.get("price") is not None]
+    # Mark best (lowest) price
+    valid = [p for p in items if p["price"] is not None]
     if valid:
         best_price = min(p["price"] for p in valid)
         for p in items:
-            p["best"] = p.get("price") == best_price
+            p["best"] = p["price"] == best_price
     else:
         for p in items:
             p["best"] = False
 
     return jsonify({"query": query, "prices": items})
 
+# --------------------
 if __name__ == "__main__":
     app.run(debug=True)
+
 
