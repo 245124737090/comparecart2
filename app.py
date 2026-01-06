@@ -1,12 +1,19 @@
 import os
 import requests
-from flask import Flask, jsonify, request
+import re
+from flask import Flask, jsonify, request, render_template
 
 app = Flask(__name__)
 
+# =========================
+# CONFIG
+# =========================
 SCRAPERAPI_KEY = os.getenv("SCRAPERAPI_KEY")
 TIMEOUT = 30
 
+# =========================
+# SCRAPERAPI HELPER
+# =========================
 def scrape_page(url):
     api_url = "https://api.scraperapi.com/"
     params = {
@@ -20,49 +27,58 @@ def scrape_page(url):
     return r.text
 
 def extract_price(html):
-    import re
     prices = re.findall(r"₹\s?[\d,]+", html)
     if prices:
         return int(prices[0].replace("₹", "").replace(",", ""))
     return None
 
-# ---------------- AMAZON ----------------
+# =========================
+# AMAZON
+# =========================
 def get_amazon_price(query):
     try:
-        search_url = f"https://www.amazon.in/s?k={query.replace(' ', '+')}"
-        html = scrape_page(search_url)
+        url = f"https://www.amazon.in/s?k={query.replace(' ', '+')}"
+        html = scrape_page(url)
         price = extract_price(html)
         if not price:
             return None
         return {
             "store": "Amazon",
             "price": price,
-            "url": search_url,
+            "url": url,
             "status": "In Stock"
         }
     except Exception as e:
         print("Amazon error:", e)
         return None
 
-# ---------------- FLIPKART ----------------
+# =========================
+# FLIPKART
+# =========================
 def get_flipkart_price(query):
     try:
-        search_url = f"https://www.flipkart.com/search?q={query.replace(' ', '+')}"
-        html = scrape_page(search_url)
+        url = f"https://www.flipkart.com/search?q={query.replace(' ', '+')}"
+        html = scrape_page(url)
         price = extract_price(html)
         if not price:
             return None
         return {
             "store": "Flipkart",
             "price": price,
-            "url": search_url,
+            "url": url,
             "status": "In Stock"
         }
     except Exception as e:
         print("Flipkart error:", e)
         return None
 
-# ---------------- API ----------------
+# =========================
+# ROUTES
+# =========================
+@app.route("/")
+def home():
+    return render_template("index.html")
+
 @app.route("/api/prices")
 def api_prices():
     query = request.args.get("query", "").strip()
@@ -75,14 +91,17 @@ def api_prices():
     prices = [p for p in (amazon, flipkart) if p]
 
     if prices:
-        best = min(p["price"] for p in prices)
+        best_price = min(p["price"] for p in prices)
         for p in prices:
-            p["best"] = (p["price"] == best)
+            p["best"] = (p["price"] == best_price)
 
     return jsonify({
         "query": query,
         "prices": prices
     })
 
+# =========================
+# RUN
+# =========================
 if __name__ == "__main__":
-    app.run()
+    app.run(debug=True)
