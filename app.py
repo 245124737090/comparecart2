@@ -1,3 +1,4 @@
+
 import os
 import random
 import requests
@@ -140,6 +141,7 @@ def api_prices():
 # --------------------
 if __name__ == "__main__":
     app.run(debug=True)
+
 
 
 
