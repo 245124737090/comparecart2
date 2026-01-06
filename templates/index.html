@@ -329,9 +329,12 @@
          style="max-width:100%;max-height:100%;object-fit:contain;border-radius:12px;">
   </div>
 
-
+  <div id="detailName" class="detail-name">No product selected</div>
+  ...
+</div>
 
             <div class="detail-header">Product</div>
+            <div id="detailName" class="detail-name">No product selected</div>
             <div id="detailPrice" class="detail-price"></div>
             <div id="detailBestText" class="detail-best" style="display:none;">Best price available</div>
             <div id="detailSpecs" class="detail-meta"></div>
@@ -346,6 +349,9 @@
             <div id="tableWrap" style="font-size:13px;color:#6b7280;">
               Choose a product to load prices from Amazon and Flipkart.
             </div>
+            <p class="muted">
+              Demo only – real prices should be fetched via your backend from APIs / scrapers.
+            </p>
           </div>
         </div>
       </section>
@@ -826,23 +832,19 @@ async function fetchPrices(product){
       detailBestText.style.display = "block";
       detailUpdated.textContent = "Updated "+new Date().toLocaleTimeString();
 
-      const rows = sorted.map(p => `
-  <tr class="${p.best ? "best-row" : ""}">
-    <td>
-      ${p.retailer}
-      ${p.best ? '<span class="badge-best">Best deal</span>' : ""}
-    </td>
-    <td><span class="status-ok">${p.status || "In Stock"}</span></td>
-    <td>${p.shipping || "Standard"}</td>
-    <td>${formatINR(p.price)}</td>
-    <td>
-      <a href="${p.url}" target="_blank" rel="noopener noreferrer">
-        <button class="btn-view" type="button">View</button>
-      </a>
-    </td>
-  </tr>
-`).join("");
-
+      const rows = sorted.map(p=>`
+        <tr class="${p.best?"best-row":""}">
+          <td>${p.store}${p.best?'<span class="badge-best">Best deal</span>':""}</td>
+          <td><span class="status-ok">${p.status}</span></td>
+          <td>${p.shipping}</td>
+          <td>${formatINR(p.price)}</td>
+          <td>
+            <a href="${p.url}" target="_blank" rel="noopener noreferrer">
+              <button class="btn-view" type="button">View</button>
+            </a>
+          </td>
+        </tr>
+      `).join("");
 
       tableWrap.innerHTML = `
         <table>
