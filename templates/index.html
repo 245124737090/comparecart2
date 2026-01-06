@@ -834,19 +834,23 @@ async function fetchPrices(product){
       detailBestText.style.display = "block";
       detailUpdated.textContent = "Updated "+new Date().toLocaleTimeString();
 
-      const rows = sorted.map(p=>`
-        <tr class="${p.best?"best-row":""}">
-          <td>${p.store}${p.best?'<span class="badge-best">Best deal</span>':""}</td>
-          <td><span class="status-ok">${p.status}</span></td>
-          <td>${p.shipping}</td>
-          <td>${formatINR(p.price)}</td>
-          <td>
-            <a href="${p.url}" target="_blank" rel="noopener noreferrer">
-              <button class="btn-view" type="button">View</button>
-            </a>
-          </td>
-        </tr>
-      `).join("");
+      const rows = sorted.map(p => `
+  <tr class="${p.best ? "best-row" : ""}">
+    <td>
+      ${p.retailer}
+      ${p.best ? '<span class="badge-best">Best deal</span>' : ""}
+    </td>
+    <td><span class="status-ok">${p.status || "In Stock"}</span></td>
+    <td>${p.shipping || "Standard"}</td>
+    <td>${formatINR(p.price)}</td>
+    <td>
+      <a href="${p.url}" target="_blank" rel="noopener noreferrer">
+        <button class="btn-view" type="button">View</button>
+      </a>
+    </td>
+  </tr>
+`).join("");
+
 
       tableWrap.innerHTML = `
         <table>
