@@ -1,107 +1,80 @@
 import os
 import requests
-import re
 from flask import Flask, jsonify, request, render_template
+from bs4 import BeautifulSoup
 
 app = Flask(__name__)
 
-# =========================
-# CONFIG
-# =========================
 SCRAPERAPI_KEY = os.getenv("SCRAPERAPI_KEY")
-TIMEOUT = 30
 
-# =========================
-# SCRAPERAPI HELPER
-# =========================
-def scrape_page(url):
-    api_url = "https://api.scraperapi.com/"
+def scrape(url):
+    api = "https://api.scraperapi.com/"
     params = {
         "api_key": SCRAPERAPI_KEY,
         "url": url,
-        "country_code": "in",
-        "render": "false"
+        "country_code": "in"
     }
-    r = requests.get(api_url, params=params, timeout=TIMEOUT)
+    r = requests.get(api, params=params, timeout=30)
     r.raise_for_status()
     return r.text
 
-def extract_price(html):
-    prices = re.findall(r"₹\s?[\d,]+", html)
-    if prices:
-        return int(prices[0].replace("₹", "").replace(",", ""))
-    return None
+def amazon_price(query):
+    url = f"https://www.amazon.in/s?k={query.replace(' ', '+')}"
+    html = scrape(url)
+    soup = BeautifulSoup(html, "html.parser")
 
-# =========================
-# AMAZON
-# =========================
-def get_amazon_price(query):
-    try:
-        url = f"https://www.amazon.in/s?k={query.replace(' ', '+')}"
-        html = scrape_page(url)
-        price = extract_price(html)
-        if not price:
-            return None
-        return {
-            "store": "Amazon",
-            "price": price,
-            "url": url,
-            "status": "In Stock"
-        }
-    except Exception as e:
-        print("Amazon error:", e)
+    price = soup.select_one("span.a-price-whole")
+    if not price:
         return None
 
-# =========================
-# FLIPKART
-# =========================
-def get_flipkart_price(query):
-    try:
-        url = f"https://www.flipkart.com/search?q={query.replace(' ', '+')}"
-        html = scrape_page(url)
-        price = extract_price(html)
-        if not price:
-            return None
-        return {
-            "store": "Flipkart",
-            "price": price,
-            "url": url,
-            "status": "In Stock"
-        }
-    except Exception as e:
-        print("Flipkart error:", e)
+    return {
+        "retailer": "Amazon",
+        "price": int(price.text.replace(",", "").strip()),
+        "status": "In Stock",
+        "url": url
+    }
+
+def flipkart_price(query):
+    url = f"https://www.flipkart.com/search?q={query.replace(' ', '+')}"
+    html = scrape(url)
+    soup = BeautifulSoup(html, "html.parser")
+
+    price = soup.select_one("div._30jeq3")
+    if not price:
         return None
 
-# =========================
-# ROUTES
-# =========================
+    return {
+        "retailer": "Flipkart",
+        "price": int(price.text.replace("₹", "").replace(",", "").strip()),
+        "status": "In Stock",
+        "url": url
+    }
+
 @app.route("/")
 def home():
     return render_template("index.html")
 
 @app.route("/api/prices")
-def api_prices():
-    query = request.args.get("query", "").strip()
+def prices():
+    query = request.args.get("query")
     if not query:
-        return jsonify({"error": "Query required"}), 400
+        return jsonify({"error": "query required"}), 400
 
-    amazon = get_amazon_price(query)
-    flipkart = get_flipkart_price(query)
+    results = []
+    for fn in (amazon_price, flipkart_price):
+        data = fn(query)
+        if data:
+            results.append(data)
 
-    prices = [p for p in (amazon, flipkart) if p]
-
-    if prices:
-        best_price = min(p["price"] for p in prices)
-        for p in prices:
-            p["best"] = (p["price"] == best_price)
+    best = min((p["price"] for p in results), default=None)
+    for p in results:
+        p["best"] = p["price"] == best
 
     return jsonify({
-        "query": query,
-        "prices": prices
+        "product": query,
+        "prices": results
     })
 
-# =========================
-# RUN
-# =========================
 if __name__ == "__main__":
     app.run(debug=True)
+
