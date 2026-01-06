@@ -52,7 +52,7 @@ def logout():
 # --------------------
 # PRICE HELPERS (EASYPARSER)
 # --------------------
-EASYPARSER_API_KEY = os.getenv("EASYPARSER_API_KEY")   # set in Render env
+EASYPARSER_API_KEY = os.getenv("EASYPARSER_API_KEY")  # set this in Render env
 
 def _parse_price(value):
     if not value:
@@ -64,22 +64,24 @@ def _parse_price(value):
 
 def get_amazon_price(query: str):
     """
-    Use Easyparser:
-      1) PRODUCT_LOOKUP (keyword) -> first product, get ASIN + price + url
-      2) If lookup fails, return None
-    Frontend still receives: { store, price, shipping, status, url }.
+    Use Easyparser Product Lookup with keyword search.
+
+    Docs pattern:
+      data['result']['search_result']['products'][0]
+    where each product has fields like:
+      asin, title, price, url, customer_reviews_rating, ...
+    [web:70][web:23]
     """
     if not EASYPARSER_API_KEY:
         print("EASYPARSER_API_KEY not set")
         return None
 
     try:
-        # --- PRODUCT_LOOKUP by keyword (works like search) ---
         params = {
             "api_key": EASYPARSER_API_KEY,
             "platform": "AMZ",
             "operation": "PRODUCT_LOOKUP",
-            "keyword": query,
+            "keyword": query,     # keyword search
             "domain": ".in",
             "output": "json",
         }
@@ -90,13 +92,13 @@ def get_amazon_price(query: str):
         )
         print("Easyparser PRODUCT_LOOKUP status:", resp.status_code)
         data = resp.json()
-        # Basic success check if present
+
+        # If Easyparser includes a request_info block, check success
         info = data.get("request_info") or {}
         if info.get("success") is False:
             print("Easyparser error:", info)
             return None
 
-        # Easyparser examples put products under result.search_result.products
         result = data.get("result") or {}
         search_result = result.get("search_result") or {}
         products = search_result.get("products") or []
@@ -110,7 +112,7 @@ def get_amazon_price(query: str):
         product_url = first.get("url") or first.get("product_url")
         price_raw = None
 
-        # price fields (depends on plan/fields)
+        # price may be nested or raw
         if isinstance(first.get("price"), dict):
             price_raw = first["price"].get("raw") or first["price"].get("value")
         elif "price" in first:
@@ -118,7 +120,6 @@ def get_amazon_price(query: str):
 
         price = _parse_price(price_raw)
 
-        # Fallback URL if missing
         if not product_url and asin:
             product_url = f"https://www.amazon.in/dp/{asin}"
 
@@ -172,7 +173,6 @@ def api_prices():
 
     items = [p for p in [amazon, flipkart] if p]
 
-    # mark best price
     valid_prices = [p["price"] for p in items if p.get("price") is not None]
     if valid_prices:
         best_price = min(valid_prices)
@@ -186,6 +186,6 @@ def api_prices():
 
 # --------------------
 if __name__ == "__main__":
-    # For local testing
     print("EASYPARSER_API_KEY is set:", bool(EASYPARSER_API_KEY))
     app.run(debug=True)
+
