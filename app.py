@@ -1,4 +1,3 @@
-
 import os
 import random
 import requests
@@ -51,9 +50,9 @@ def logout():
     return redirect(url_for("home"))
 
 # --------------------
-# PRICE HELPERS
+# PRICE HELPERS (EASYPARSER)
 # --------------------
-RAINFOREST_API_KEY = os.getenv("RAINFOREST_API_KEY")
+EASYPARSER_API_KEY = os.getenv("EASYPARSER_API_KEY")   # set in Render env
 
 def _parse_price(value):
     if not value:
@@ -63,47 +62,91 @@ def _parse_price(value):
     digits = "".join(c for c in str(value) if c.isdigit())
     return int(digits) if digits else None
 
-def get_amazon_price(query):
-    """Fetch first Amazon.in result using Rainforest API"""
-    if not RAINFOREST_API_KEY:
+def get_amazon_price(query: str):
+    """
+    Use Easyparser:
+      1) PRODUCT_LOOKUP (keyword) -> first product, get ASIN + price + url
+      2) If lookup fails, return None
+    Frontend still receives: { store, price, shipping, status, url }.
+    """
+    if not EASYPARSER_API_KEY:
+        print("EASYPARSER_API_KEY not set")
         return None
+
     try:
+        # --- PRODUCT_LOOKUP by keyword (works like search) ---
+        params = {
+            "api_key": EASYPARSER_API_KEY,
+            "platform": "AMZ",
+            "operation": "PRODUCT_LOOKUP",
+            "keyword": query,
+            "domain": ".in",
+            "output": "json",
+        }
         resp = requests.get(
-            "https://api.rainforestapi.com/request",
-            params={
-                "api_key": RAINFOREST_API_KEY,
-                "type": "search",
-                "amazon_domain": "amazon.in",
-                "search_term": query,
-                "sort_by": "featured"
-            },
-            timeout=10
+            "https://realtime.easyparser.com/v1/request",
+            params=params,
+            timeout=20,
         )
+        print("Easyparser PRODUCT_LOOKUP status:", resp.status_code)
         data = resp.json()
-        results = data.get("search_results") or []
-        if not results:
+        # Basic success check if present
+        info = data.get("request_info") or {}
+        if info.get("success") is False:
+            print("Easyparser error:", info)
             return None
-        first = results[0]
-        price = _parse_price(first.get("price", {}).get("raw"))
+
+        # Easyparser examples put products under result.search_result.products
+        result = data.get("result") or {}
+        search_result = result.get("search_result") or {}
+        products = search_result.get("products") or []
+
+        if not products:
+            print("No products for query:", query)
+            return None
+
+        first = products[0]
+        asin = first.get("asin")
+        product_url = first.get("url") or first.get("product_url")
+        price_raw = None
+
+        # price fields (depends on plan/fields)
+        if isinstance(first.get("price"), dict):
+            price_raw = first["price"].get("raw") or first["price"].get("value")
+        elif "price" in first:
+            price_raw = first["price"]
+
+        price = _parse_price(price_raw)
+
+        # Fallback URL if missing
+        if not product_url and asin:
+            product_url = f"https://www.amazon.in/dp/{asin}"
+
         return {
             "store": "Amazon",
             "price": price,
             "shipping": "See on Amazon",
             "status": "In Stock" if price else "Price unavailable",
-            "url": first.get("link") or "https://www.amazon.in",
+            "url": product_url or "https://www.amazon.in",
         }
+
     except Exception as e:
-        print("Amazon error:", e)
+        print("Amazon (Easyparser) error:", e)
         return None
 
 def placeholder_flipkart_demo(amazon_price=None, query=None):
-    """Demo Flipkart price near Amazon + search link"""
+    """Demo Flipkart price near Amazon + search link."""
     if amazon_price:
         variation = random.uniform(-0.05, 0.05)  # ±5%
         flipkart_price = int(amazon_price * (1 + variation))
     else:
         flipkart_price = None
-    search_url = f"https://www.flipkart.com/search?q={query.replace(' ', '+')}" if query else "https://www.flipkart.com"
+
+    search_url = (
+        f"https://www.flipkart.com/search?q={query.replace(' ', '+')}"
+        if query
+        else "https://www.flipkart.com"
+    )
     return {
         "store": "Flipkart",
         "price": flipkart_price,
@@ -122,7 +165,10 @@ def api_prices():
         return jsonify({"error": "query required", "prices": []}), 400
 
     amazon = get_amazon_price(query)
-    flipkart = placeholder_flipkart_demo(amazon_price=amazon.get("price") if amazon else None, query=query)
+    flipkart = placeholder_flipkart_demo(
+        amazon_price=amazon.get("price") if amazon else None,
+        query=query,
+    )
 
     items = [p for p in [amazon, flipkart] if p]
 
@@ -140,12 +186,6 @@ def api_prices():
 
 # --------------------
 if __name__ == "__main__":
+    # For local testing
+    print("EASYPARSER_API_KEY is set:", bool(EASYPARSER_API_KEY))
     app.run(debug=True)
-
-
-
-
-
-
-
-
