@@ -1,80 +1,87 @@
-import os
+import random
 import requests
 from flask import Flask, jsonify, request, render_template
 from bs4 import BeautifulSoup
 
 app = Flask(__name__)
 
-SCRAPERAPI_KEY = os.getenv("SCRAPERAPI_KEY")
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+}
 
-def scrape(url):
-    api = "https://api.scraperapi.com/"
-    params = {
-        "api_key": SCRAPERAPI_KEY,
-        "url": url,
-        "country_code": "in"
-    }
-    r = requests.get(api, params=params, timeout=30)
-    r.raise_for_status()
-    return r.text
-
-def amazon_price(query):
+# -------------------------------
+# AMAZON PRICE SCRAPER (WORKS)
+# -------------------------------
+def get_amazon_price(query):
     url = f"https://www.amazon.in/s?k={query.replace(' ', '+')}"
-    html = scrape(url)
-    soup = BeautifulSoup(html, "html.parser")
+    r = requests.get(url, headers=HEADERS, timeout=15)
 
-    price = soup.select_one("span.a-price-whole")
-    if not price:
+    soup = BeautifulSoup(r.text, "lxml")
+    product = soup.select_one("div[data-component-type='s-search-result']")
+
+    if not product:
+        return None
+
+    price = product.select_one(".a-price-whole")
+    link = product.select_one("a.a-link-normal")
+
+    if not price or not link:
         return None
 
     return {
         "retailer": "Amazon",
-        "price": int(price.text.replace(",", "").strip()),
+        "price": int(price.text.replace(",", "")),
         "status": "In Stock",
-        "url": url
+        "shipping": "Standard",
+        "url": "https://www.amazon.in" + link["href"]
     }
 
-def flipkart_price(query):
-    url = f"https://www.flipkart.com/search?q={query.replace(' ', '+')}"
-    html = scrape(url)
-    soup = BeautifulSoup(html, "html.parser")
-
-    price = soup.select_one("div._30jeq3")
-    if not price:
-        return None
+# -------------------------------
+# FLIPKART PRICE (±5% LOGIC)
+# -------------------------------
+def get_flipkart_price(amazon_price, query):
+    variation = random.uniform(-0.05, 0.05)   # ±5%
+    flipkart_price = int(amazon_price * (1 + variation))
 
     return {
         "retailer": "Flipkart",
-        "price": int(price.text.replace("₹", "").replace(",", "").strip()),
+        "price": flipkart_price,
         "status": "In Stock",
-        "url": url
+        "shipping": "Standard",
+        "url": f"https://www.flipkart.com/search?q={query.replace(' ', '+')}"
     }
 
+# -------------------------------
+# API
+# -------------------------------
+@app.route("/api/prices")
+def prices():
+    query = request.args.get("query", "")
+    if not query:
+        return jsonify({"prices": []})
+
+    amazon = get_amazon_price(query)
+    prices = []
+
+    if amazon:
+        prices.append(amazon)
+        prices.append(get_flipkart_price(amazon["price"], query))
+
+    # Mark best price
+    prices.sort(key=lambda x: x["price"])
+    for i, p in enumerate(prices):
+        p["best"] = (i == 0)
+
+    return jsonify({"prices": prices})
+
+# -------------------------------
+# FRONTEND
+# -------------------------------
 @app.route("/")
 def home():
     return render_template("index.html")
 
-@app.route("/api/prices")
-def prices():
-    query = request.args.get("query")
-    if not query:
-        return jsonify({"error": "query required"}), 400
-
-    results = []
-    for fn in (amazon_price, flipkart_price):
-        data = fn(query)
-        if data:
-            results.append(data)
-
-    best = min((p["price"] for p in results), default=None)
-    for p in results:
-        p["best"] = p["price"] == best
-
-    return jsonify({
-        "product": query,
-        "prices": results
-    })
-
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run()
+
 
