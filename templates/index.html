@@ -836,7 +836,8 @@ async function fetchPrices(product){
 
       const rows = sorted.map(p=>`
         <tr class="${p.best?"best-row":""}">
-          <td>${p.store}${p.best?'<span class="badge-best">Best deal</span>':""}</td>
+          <td>${p.retailer}${p.best?'<span class="badge-best">Best deal</span>':""}</td>
+
           <td><span class="status-ok">${p.status}</span></td>
           <td>${p.shipping}</td>
           <td>${formatINR(p.price)}</td>
