@@ -51,10 +51,14 @@ def logout():
     return redirect(url_for("home"))
 
 # --------------------
-# PRICE HELPERS (EASYPARSER)
+# EASY PARSER CONFIG
 # --------------------
-EASYPARSER_API_KEY = os.getenv("EASYPARSER_API_KEY")  # must be set in Render
+EASYPARSER_API_KEY = os.getenv("EASYPARSER_API_KEY")
+EASYPARSER_DOMAIN = os.getenv("EASYPARSER_DOMAIN", ".com")  # IMPORTANT: .in is failing in your logs
 
+# --------------------
+# PRICE HELPERS
+# --------------------
 def _parse_price(value):
     if not value:
         return None
@@ -65,31 +69,19 @@ def _parse_price(value):
 
 def get_amazon_price(query: str):
     """
-    Uses Easyparser PRODUCT_LOOKUP endpoint.
-
-    Easyparser example (docs/blog):
-      params = {
-        'api_key': 'YOUR_API_KEY',
-        'platform': 'AMZ',
-        'operation': 'PRODUCT_LOOKUP',
-        'keyword': '097855170927',
-        'domain': '.com'
-      }
-    Response:
-      data['result']['search_result']['products'][0]
-    [web:70]
+    Uses Easyparser PRODUCT_LOOKUP with keyword (singular), matching Easyparser docs/examples.
     """
     if not EASYPARSER_API_KEY:
-        print("❌ EASYPARSER_API_KEY not set")
+        print("EASYPARSER_API_KEY not set")
         return None
 
     try:
         params = {
             "api_key": EASYPARSER_API_KEY,
             "platform": "AMZ",
-            "operation": "PRODUCT_LOOKUP",  # required for keyword search
-            "keyword": query,               # product name / keyword
-            "domain": ".in",                # Amazon India
+            "operation": "PRODUCT_LOOKUP",
+            "keyword": query,              # keyword (singular)
+            "domain": EASYPARSER_DOMAIN,   # use allowed value like ".com"
             "output": "json",
         }
 
@@ -99,73 +91,55 @@ def get_amazon_price(query: str):
             timeout=20,
         )
 
-        print(f"Easyparser PRODUCT_LOOKUP status: {resp.status_code}")
-        print(f"Query: {query!r}")
-
+        print("Easyparser PRODUCT_LOOKUP status:", resp.status_code)
+        print("Easyparser domain:", EASYPARSER_DOMAIN)
         if resp.status_code != 200:
-            # e.g. {"error":"[] Either keyword or url is required."}
-            print("Easyparser error response:", resp.text[:500])
+            print("Easyparser error response:", resp.text[:700])
             return None
 
         data = resp.json()
-        # Debug: log truncated JSON to Render logs
+
+        # Debug (optional): print response structure
         print("=== Easyparser JSON (truncated) ===")
-        print(json.dumps(data, indent=2)[:1500])
+        print(json.dumps(data, indent=2)[:1200])
         print("=== END Easyparser JSON ===")
 
-        # Optional success check
-        info = data.get("request_info") or {}
-        if info.get("success") is False:
-            print("Easyparser reported failure:", info)
-            return None
-
-        # Products path from docs: result.search_result.products[ ]
         result = data.get("result") or {}
         search_result = result.get("search_result") or {}
         products = search_result.get("products") or []
 
         if not products:
-            print("No products found for query:", query)
+            print("No products for query:", query)
             return None
 
         first = products[0]
-        print("First product keys:", list(first.keys()))
-
         asin = first.get("asin")
-        product_url = first.get("url") or first.get("product_url")
+        url = first.get("url") or first.get("product_url") or (f"https://www.amazon.com/dp/{asin}" if asin else None)
 
-        price_obj = first.get("price")
         price_raw = None
+        price_obj = first.get("price")
         if isinstance(price_obj, dict):
-            # Different plans can use raw/value/amount
             price_raw = price_obj.get("raw") or price_obj.get("value") or price_obj.get("amount")
         elif price_obj is not None:
             price_raw = price_obj
 
         price = _parse_price(price_raw)
-        print(f"Price raw: {price_raw!r} -> parsed: {price}")
 
-        if not product_url and asin:
-            product_url = f"https://www.amazon.in/dp/{asin}"
-
-        result_obj = {
+        return {
             "store": "Amazon",
             "price": price,
             "shipping": "See on Amazon",
             "status": "In Stock" if price else "Price unavailable",
-            "url": product_url or "https://www.amazon.in",
+            "url": url or "https://www.amazon.com",
         }
-        print("Amazon result object:", result_obj)
-        return result_obj
 
     except Exception as e:
         print("Amazon (Easyparser) error:", type(e).__name__, str(e))
         return None
 
 def placeholder_flipkart_demo(amazon_price=None, query=None):
-    """Demo Flipkart price near Amazon + search link."""
     if amazon_price:
-        variation = random.uniform(-0.05, 0.05)  # ±5%
+        variation = random.uniform(-0.05, 0.05)
         flipkart_price = int(amazon_price * (1 + variation))
     else:
         flipkart_price = None
@@ -192,8 +166,6 @@ def api_prices():
     if not query:
         return jsonify({"error": "query required", "prices": []}), 400
 
-    print(f"/api/prices called with query: {query!r}")
-
     amazon = get_amazon_price(query)
     flipkart = placeholder_flipkart_demo(
         amazon_price=amazon.get("price") if amazon else None,
@@ -206,16 +178,15 @@ def api_prices():
     if valid_prices:
         best_price = min(valid_prices)
         for p in items:
-            p["best"] = p.get("price") == best_price
+            p["best"] = (p.get("price") == best_price)
     else:
         for p in items:
             p["best"] = False
 
-    print("Returning prices:", items)
     return jsonify({"query": query, "prices": items})
 
-# --------------------
 if __name__ == "__main__":
-    print("Starting CompareCart Flask app")
     print("EASYPARSER_API_KEY set:", bool(EASYPARSER_API_KEY))
+    print("EASYPARSER_DOMAIN:", EASYPARSER_DOMAIN)
     app.run(debug=True)
+
