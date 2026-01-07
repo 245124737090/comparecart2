@@ -143,7 +143,48 @@ def api_prices():
 
 @app.route("/")
 def home():
+    user_email = session.get("user_email")
     return render_template("index.html")
+    @app.route("/signup", methods=["POST"])
+def signup():
+    email = request.form.get("email", "").strip().lower()
+    password = request.form.get("password", "").strip()
+
+    if not email or not password:
+        flash("Email and password are required.")
+        return redirect(url_for("home") + "#signup")
+
+    if email in users:
+        flash("User already exists. Please log in.")
+        return redirect(url_for("home") + "#login")
+
+    users[email] = {
+        "password_hash": generate_password_hash(password)
+    }
+    session["user_email"] = email
+    flash("Account created and logged in.")
+    return redirect(url_for("home"))
+
+@app.route("/login", methods=["POST"])
+def login():
+    email = request.form.get("email", "").strip().lower()
+    password = request.form.get("password", "").strip()
+
+    user = users.get(email)
+    if not user or not check_password_hash(user["password_hash"], password):
+        flash("Invalid email or password.")
+        return redirect(url_for("home") + "#login")
+
+    session["user_email"] = email
+    flash("Logged in successfully.")
+    return redirect(url_for("home"))
+
+@app.route("/logout")
+def logout():
+    session.pop("user_email", None)
+    flash("Logged out.")
+    return redirect(url_for("home"))
+
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
